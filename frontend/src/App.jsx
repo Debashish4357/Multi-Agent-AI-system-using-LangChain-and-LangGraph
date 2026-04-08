@@ -5,9 +5,10 @@ import LoadingSpinner from "./components/LoadingSpinner";
 const ResultCard = React.lazy(() => import("./components/ResultCard"));
 
 const EXAMPLE_QUERIES = [
-  "Plan a 3-day trip to Goa with a low budget",
-  "Plan a 5-day trip to Manali with ₹25000 budget",
-  "Plan a 4-day heritage trip to Rajasthan",
+  "Plan a 4-day family trip to Kerala. Kids love beaches and animals.",
+  "Plan a 5-day trip to Kyoto. I love street food, historic temples, and nature walks.",
+  "Plan a weekend getaway to Mumbai. Interested in culture, art museums, and nightlife.",
+  "Plan a 3-day budget trip to Vietnam. We enjoy bustling cafes and local markets."
 ];
 
 export default function App() {
