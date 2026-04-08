@@ -56,6 +56,45 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleDownload = () => {
+    if (!result) return;
+    
+    const content = `
+🌍 AI PERSONALIZED TRAVEL PLAN 🌍
+=================================
+
+📍 PLACES TO VISIT
+---------------------------------
+${result.places}
+
+💰 BUDGET BREAKDOWN
+---------------------------------
+${result.budget}
+
+📅 DAY-WISE ITINERARY
+---------------------------------
+${result.schedule}
+
+✅ TRAVEL TIPS & PRECAUTIONS
+---------------------------------
+${result.review}
+
+📋 TRIP SUMMARY
+---------------------------------
+${result.summary}
+    `.trim();
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "My_Travel_Plan.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white font-sans selection:bg-blue-500/30">
 
@@ -200,14 +239,20 @@ export default function App() {
                 />
               </Suspense>
 
-              {/* Start Over Button */}
-              <div className="text-center pt-6 pb-2">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6 pb-2">
+                <button
+                  onClick={handleDownload}
+                  className="inline-flex items-center gap-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-full transition-colors shadow-lg shadow-blue-500/20"
+                >
+                  <span className="text-lg">📥</span> Download My Plan
+                </button>
                 <button
                   onClick={() => {
                     setResult(null);
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
-                  className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white px-4 py-2 rounded-full hover:bg-slate-800 transition-colors"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white px-4 py-3 rounded-full hover:bg-slate-800 transition-colors"
                 >
                   <span>↺</span> Plan another trip
                 </button>
