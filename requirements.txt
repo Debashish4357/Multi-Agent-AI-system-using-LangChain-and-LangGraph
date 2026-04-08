@@ -1,5 +1,5 @@
 langchain
-langchain-google-genai
+langchain-groq
 langgraph
 python-dotenv
 fastapi

@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from multi_agent_system import build_graph, TravelState
 
 # ─────────────────────────────────────────────────────────────────────────────
-load_dotenv()
+load_dotenv(override=True)
 
 app = FastAPI(
     title="Multi-Agent Travel Planner API",
@@ -68,11 +68,11 @@ async def plan_trip(request: TripRequest):
     if not request.user_input.strip():
         raise HTTPException(status_code=400, detail="user_input cannot be empty.")
 
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=500,
-            detail="GOOGLE_API_KEY is not configured on the server."
+            detail="GROQ_API_KEY is not configured on the server."
         )
 
     initial_state: TravelState = {
@@ -87,13 +87,17 @@ async def plan_trip(request: TripRequest):
     try:
         graph       = build_graph()
         final_state = graph.invoke(initial_state)
+        
+        # Ensure that no fields are entirely missing
+        return TripResponse(
+            places   = final_state.get("places",     "No places generated."),
+            budget   = final_state.get("budget",     "No budget generated."),
+            schedule = final_state.get("schedule",   "No schedule generated."),
+            review   = final_state.get("final_plan", "No review generated."),
+            summary  = final_state.get("summary",    "No summary generated."),
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Agent pipeline failed: {str(e)}")
-
-    return TripResponse(
-        places   = final_state.get("places",     ""),
-        budget   = final_state.get("budget",     ""),
-        schedule = final_state.get("schedule",   ""),
-        review   = final_state.get("final_plan", ""),
-        summary  = final_state.get("summary",    ""),
-    )
+        # Logs the exact error on the backend console for debugging
+        print(f"[ERROR] LangGraph Pipeline failed: {str(e)}")
+        # Sends a safe 500 error back to the React UI without crashing the server thread
+        raise HTTPException(status_code=500, detail=f"Agent pipeline failed during execution: {str(e)}")

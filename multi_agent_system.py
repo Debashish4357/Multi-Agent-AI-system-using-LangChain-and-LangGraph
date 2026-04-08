@@ -14,36 +14,52 @@ Workflow: user_input → Planner → Budget → Scheduler → Reviewer → Summa
 """
 
 import os
+import time
 from typing import TypedDict
 from dotenv import load_dotenv
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage
-
 from langgraph.graph import StateGraph, END
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 0.  Environment Setup
 # ─────────────────────────────────────────────────────────────────────────────
-load_dotenv()  # loads GOOGLE_API_KEY from .env (if present)
+load_dotenv(override=True)  # forces pulling from .env over terminal cache
 
 
-def get_llm() -> ChatGoogleGenerativeAI:
-    """Return a configured Gemini LLM instance."""
-    api_key = os.getenv("GOOGLE_API_KEY")
+def get_llm() -> ChatGroq:
+    """Return a configured Groq LLM instance."""
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise EnvironmentError(
-            "\n[ERROR] GOOGLE_API_KEY is not set.\n"
-            "  → Create a .env file in this directory with:\n"
-            "      GOOGLE_API_KEY=your_key_here\n"
-            "  → Or set it in PowerShell before running:\n"
-            "      $env:GOOGLE_API_KEY='your_key_here'\n"
+            "\n[ERROR] GROQ_API_KEY is not set.\n"
+            "  → Add it to your .env file:\n"
+            "      GROQ_API_KEY=your_key_here\n"
         )
-    return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        google_api_key=api_key,
+    return ChatGroq(
+        model="llama-3.3-70b-versatile",
+        api_key=api_key,
         temperature=0.7,
     )
+
+
+def invoke_with_retry(llm, messages, retries=3, wait=12):
+    """Call the LLM with automatic retry on quota errors (429)."""
+    for attempt in range(retries):
+        try:
+            return llm.invoke(messages)
+        except Exception as e:
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                if attempt < retries - 1:
+                    print(f"  ⏳ Rate limit hit. Retrying in {wait}s... (attempt {attempt+1}/{retries})")
+                    time.sleep(wait)
+                else:
+                    raise RuntimeError(
+                        "Groq API rate limit exhausted or failed. Please check your token quota."
+                    ) from e
+            else:
+                raise
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -51,12 +67,12 @@ def get_llm() -> ChatGoogleGenerativeAI:
 # ─────────────────────────────────────────────────────────────────────────────
 class TravelState(TypedDict):
     """Shared context that flows through the entire agent graph."""
-    user_input: str    # Raw user request (destination, days, budget, preferences)
+    user_input: str    # Raw user request
     places:     str    # Output of Planner Agent
     budget:     str    # Output of Budget Agent
     schedule:   str    # Output of Scheduler Agent
-    final_plan: str    # Output of Reviewer Agent (improved plan + tips)
-    summary:    str    # Output of Summary Agent (clean trip summary)
+    final_plan: str    # Output of Reviewer Agent
+    summary:    str    # Output of Summary Agent
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -64,10 +80,6 @@ class TravelState(TypedDict):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def planner_agent(state: TravelState) -> TravelState:
-    """
-    Agent 1 – Travel Planner
-    Role: Understands the user request and suggests 4–6 best places to visit.
-    """
     print("\n🗺️  [Agent 1 / 5]  Planner Agent is thinking...", flush=True)
 
     planner_prompt = f"""
@@ -94,16 +106,12 @@ Places to Visit:
 """
 
     llm = get_llm()
-    response = llm.invoke([HumanMessage(content=planner_prompt)])
+    response = invoke_with_retry(llm, [HumanMessage(content=planner_prompt)])
     state["places"] = response.content.strip()
     return state
 
 
 def budget_agent(state: TravelState) -> TravelState:
-    """
-    Agent 2 – Budget Estimator
-    Role: Estimates the complete cost breakdown considering user's budget preference.
-    """
     print("\n💰  [Agent 2 / 5]  Budget Agent is thinking...", flush=True)
 
     budget_prompt = f"""
@@ -135,16 +143,12 @@ Total Estimated Budget: ₹...
 """
 
     llm = get_llm()
-    response = llm.invoke([HumanMessage(content=budget_prompt)])
+    response = invoke_with_retry(llm, [HumanMessage(content=budget_prompt)])
     state["budget"] = response.content.strip()
     return state
 
 
 def scheduler_agent(state: TravelState) -> TravelState:
-    """
-    Agent 3 – Itinerary Scheduler
-    Role: Creates a comfortable day-wise travel plan.
-    """
     print("\n📅  [Agent 3 / 5]  Scheduler Agent is thinking...", flush=True)
 
     scheduler_prompt = f"""
@@ -171,16 +175,12 @@ Day 3:
 """
 
     llm = get_llm()
-    response = llm.invoke([HumanMessage(content=scheduler_prompt)])
+    response = invoke_with_retry(llm, [HumanMessage(content=scheduler_prompt)])
     state["schedule"] = response.content.strip()
     return state
 
 
 def reviewer_agent(state: TravelState) -> TravelState:
-    """
-    Agent 4 – Expert Reviewer
-    Role: Reviews the plan, improves it, and adds travel tips and precautions.
-    """
     print("\n✅  [Agent 4 / 5]  Reviewer Agent is thinking...", flush=True)
 
     reviewer_prompt = f"""
@@ -209,16 +209,12 @@ Travel Tips:
 """
 
     llm = get_llm()
-    response = llm.invoke([HumanMessage(content=reviewer_prompt)])
+    response = invoke_with_retry(llm, [HumanMessage(content=reviewer_prompt)])
     state["final_plan"] = response.content.strip()
     return state
 
 
 def summary_agent(state: TravelState) -> TravelState:
-    """
-    Agent 5 – Trip Summarizer
-    Role: Produces a clean, concise summary of the entire travel plan.
-    """
     print("\n📋  [Agent 5 / 5]  Summary Agent is thinking...", flush=True)
 
     summary_prompt = f"""
@@ -242,7 +238,7 @@ Trip Summary:
 """
 
     llm = get_llm()
-    response = llm.invoke([HumanMessage(content=summary_prompt)])
+    response = invoke_with_retry(llm, [HumanMessage(content=summary_prompt)])
     state["summary"] = response.content.strip()
     return state
 
@@ -252,22 +248,15 @@ Trip Summary:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_graph() -> StateGraph:
-    """
-    Constructs the LangGraph with nodes and directed edges.
-
-    Pipeline:
-        START → planner → budget → scheduler → reviewer → summary → END
-    """
+    """Constructs the LangGraph with nodes and directed edges."""
     graph = StateGraph(TravelState)
 
-    # Register all 5 agent nodes
     graph.add_node("planner",   planner_agent)
     graph.add_node("budget",    budget_agent)
     graph.add_node("scheduler", scheduler_agent)
     graph.add_node("reviewer",  reviewer_agent)
     graph.add_node("summary",   summary_agent)
 
-    # Define directed edges (sequential pipeline)
     graph.set_entry_point("planner")
     graph.add_edge("planner",   "budget")
     graph.add_edge("budget",    "scheduler")
@@ -279,99 +268,23 @@ def build_graph() -> StateGraph:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4.  Output Formatter
-# ─────────────────────────────────────────────────────────────────────────────
-
-def display_results(state: TravelState) -> None:
-    """Pretty-print the outputs from all five agents."""
-    divider = "=" * 65
-
-    print(f"\n{divider}")
-    print("         🌍  MULTI-AGENT TRAVEL PLANNER RESULTS")
-    print(divider)
-
-    print("\n📍  SUGGESTED PLACES  (Planner Agent)")
-    print("-" * 65)
-    print(state.get("places", "N/A"))
-
-    print("\n💰  BUDGET BREAKDOWN  (Budget Agent)")
-    print("-" * 65)
-    print(state.get("budget", "N/A"))
-
-    print("\n📅  DAY-WISE SCHEDULE  (Scheduler Agent)")
-    print("-" * 65)
-    print(state.get("schedule", "N/A"))
-
-    print("\n✅  FINAL IMPROVED PLAN & TIPS  (Reviewer Agent)")
-    print("-" * 65)
-    print(state.get("final_plan", "N/A"))
-
-    print("\n📋  TRIP SUMMARY  (Summary Agent)")
-    print("-" * 65)
-    print(state.get("summary", "N/A"))
-
-    print(f"\n{divider}\n")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 5.  Main Entry Point
+# 4.  Main Entry Point (CLI Fallback)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    """
-    Entry point – collects user input, runs the multi-agent graph,
-    and displays the complete travel plan.
-    """
-    print("=" * 65)
-    print("   🌍  Multi-Agent AI Travel Planner  (LangChain + LangGraph)")
-    print("=" * 65)
-    print("\nThis system uses 5 AI agents to create your perfect trip:")
-    print("  Agent 1 → Planner   : Finds the best places to visit")
-    print("  Agent 2 → Budget    : Estimates your total trip cost")
-    print("  Agent 3 → Scheduler : Builds your day-wise itinerary")
-    print("  Agent 4 → Reviewer  : Refines the plan and adds tips")
-    print("  Agent 5 → Summary   : Creates a clean trip summary")
-    print("-" * 65)
-
-    # ── Collect user input dynamically ──────────────────────────────────────
-    print("\nPlease provide your trip details:")
-    destination = input("  📍 Destination (e.g., Manali, Goa, Rajasthan): ").strip()
-    days        = input("  📆 Number of days (e.g., 3, 5, 7): ").strip()
-    budget      = input("  💰 Total budget in ₹ (e.g., 10000, 25000, 50000): ").strip()
-    preferences = input("  🎯 Preferences (e.g., adventure, beaches, heritage) [optional]: ").strip()
-
-    # ── Compose a natural-language user request ──────────────────────────────
-    user_input = (
-        f"I want to travel to {destination} for {days} days "
-        f"with a total budget of ₹{budget}."
-    )
-    if preferences:
-        user_input += f" My interests include: {preferences}."
-
-    print(f"\n✈️  Your Request: {user_input}")
-    print("\n⏳  Starting the multi-agent pipeline...\n")
-
-    # ── Build and run the LangGraph ──────────────────────────────────────────
-    initial_state: TravelState = {
-        "user_input": user_input,
-        "places":     "",
-        "budget":     "",
-        "schedule":   "",
-        "final_plan": "",
-        "summary":    "",
-    }
+    print("🌍 Starting Multi-Agent Travel Planner Engine (OpenAI)")
+    
+    user_input = input("Describe your trip: ")
+    initial_state = { "user_input": user_input, "places": "", "budget": "", "schedule": "", "final_plan": "", "summary": "" }
 
     try:
-        graph       = build_graph()
+        graph = build_graph()
         final_state = graph.invoke(initial_state)
-        display_results(final_state)
-    except EnvironmentError as e:
-        print(e)
+        print("\n\n--- COMPLETED ---\n")
+        print(final_state["summary"])
     except Exception as e:
-        print(f"\n[ERROR] An unexpected error occurred:\n  {e}\n")
-        raise
+        print(f"\n[ERROR] Pipeline failed: {e}\n")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     main()
