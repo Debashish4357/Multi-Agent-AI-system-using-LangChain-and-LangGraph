@@ -1,13 +1,15 @@
-// ResultCard.jsx — Displays a single agent output section
-export default function ResultCard({ icon, title, content, colorScheme }) {
-  const schemes = {
-    blue:   { bg: "bg-blue-50",   border: "border-blue-200",  header: "bg-blue-500",   badge: "bg-blue-100 text-blue-700"   },
-    green:  { bg: "bg-green-50",  border: "border-green-200", header: "bg-green-500",  badge: "bg-green-100 text-green-700" },
-    purple: { bg: "bg-purple-50", border: "border-purple-200",header: "bg-purple-500", badge: "bg-purple-100 text-purple-700"},
-    orange: { bg: "bg-orange-50", border: "border-orange-200",header: "bg-orange-500", badge: "bg-orange-100 text-orange-700"},
-    teal:   { bg: "bg-teal-50",   border: "border-teal-200",  header: "bg-teal-500",   badge: "bg-teal-100 text-teal-700"   },
-  };
+import React from 'react';
 
+const schemes = {
+  blue:   { bg: "bg-blue-50",   border: "border-blue-200",  header: "bg-blue-500",   badge: "bg-blue-100 text-blue-700"   },
+  green:  { bg: "bg-green-50",  border: "border-green-200", header: "bg-green-500",  badge: "bg-green-100 text-green-700" },
+  purple: { bg: "bg-purple-50", border: "border-purple-200",header: "bg-purple-500", badge: "bg-purple-100 text-purple-700"},
+  orange: { bg: "bg-orange-50", border: "border-orange-200",header: "bg-orange-500", badge: "bg-orange-100 text-orange-700"},
+  gray:   { bg: "bg-gray-50",   border: "border-gray-200",  header: "bg-gray-600",   badge: "bg-gray-200 text-gray-800"   },
+};
+
+// ResultCard.jsx — Displays a single agent output section
+const ResultCard = ({ icon, title, content, colorScheme }) => {
   const s = schemes[colorScheme] || schemes.blue;
 
   // Format plain text: bold lines starting with "Day", "-", numbered lists
@@ -39,4 +41,7 @@ export default function ResultCard({ icon, title, content, colorScheme }) {
       </div>
     </div>
   );
-}
+};
+
+// Memoize to prevent unnecessary re-renders when parent state changes (e.g. typing in the input box)
+export default React.memo(ResultCard);
