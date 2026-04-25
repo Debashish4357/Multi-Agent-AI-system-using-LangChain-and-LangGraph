@@ -26,7 +26,7 @@ export default function App() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8000/plan-trip", {
+      const response = await fetch("https://ai-travel-backend.onrender.com/plan-trip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_input: userInput.trim() }),
