@@ -9,8 +9,9 @@ Run with:
 """
 
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -25,7 +26,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Allow requests from the React dev server (port 5173)
+# Allow requests from any deployed frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,6 +34,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Explicit preflight handler — ensures CORS headers are returned
+# even during cold starts on Render's free tier
+@app.options("/plan-trip")
+async def preflight_handler(request: Request):
+    return JSONResponse(
+        content={"message": "preflight accepted"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -57,7 +71,13 @@ class TripResponse(BaseModel):
 
 @app.get("/")
 def root():
-    return {"message": "🌍 Travel Planner API is running. POST to /plan-trip to start."}
+    return {"message": "Travel Planner API is running. POST to /plan-trip to start."}
+
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint to keep the Render server warm."""
+    return {"status": "ok"}
 
 
 @app.post("/plan-trip", response_model=TripResponse)
