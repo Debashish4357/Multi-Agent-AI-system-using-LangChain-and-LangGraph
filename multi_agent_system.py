@@ -80,7 +80,7 @@ class TravelState(TypedDict):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def planner_agent(state: TravelState) -> TravelState:
-    print("\n🗺️  [Agent 1 / 5]  Planner Agent is thinking...", flush=True)
+    print("\n[Agent 1 / 5] Planner Agent is thinking...", flush=True)
 
     planner_prompt = f"""
 You are a professional travel planner.
@@ -112,7 +112,7 @@ Places to Visit:
 
 
 def budget_agent(state: TravelState) -> TravelState:
-    print("\n💰  [Agent 2 / 5]  Budget Agent is thinking...", flush=True)
+    print("\n[Agent 2 / 5] Budget Agent is thinking...", flush=True)
 
     budget_prompt = f"""
 You are a travel budget expert.
@@ -149,7 +149,7 @@ Total Estimated Budget: ₹...
 
 
 def scheduler_agent(state: TravelState) -> TravelState:
-    print("\n📅  [Agent 3 / 5]  Scheduler Agent is thinking...", flush=True)
+    print("\n[Agent 3 / 5] Scheduler Agent is thinking...", flush=True)
 
     scheduler_prompt = f"""
 You are a travel itinerary planner.
@@ -181,7 +181,7 @@ Day 3:
 
 
 def reviewer_agent(state: TravelState) -> TravelState:
-    print("\n✅  [Agent 4 / 5]  Reviewer Agent is thinking...", flush=True)
+    print("\n[Agent 4 / 5] Reviewer Agent is thinking...", flush=True)
 
     reviewer_prompt = f"""
 You are an expert travel reviewer.
@@ -215,7 +215,7 @@ Travel Tips:
 
 
 def summary_agent(state: TravelState) -> TravelState:
-    print("\n📋  [Agent 5 / 5]  Summary Agent is thinking...", flush=True)
+    print("\n[Agent 5 / 5] Summary Agent is thinking...", flush=True)
 
     summary_prompt = f"""
 You are a travel assistant.
@@ -272,7 +272,7 @@ def build_graph() -> StateGraph:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    print("🌍 Starting Multi-Agent Travel Planner Engine (OpenAI)")
+    print("Starting Multi-Agent Travel Planner Engine (OpenAI)")
     
     user_input = input("Describe your trip: ")
     initial_state = { "user_input": user_input, "places": "", "budget": "", "schedule": "", "final_plan": "", "summary": "" }
